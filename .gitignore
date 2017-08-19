@@ -1,0 +1,8 @@
+/bin/
+*.class
+*.jar
+*.zip
+*.bak
+*.biglybt
+.classpath
+.project
