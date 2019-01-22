@@ -322,6 +322,8 @@ function removePeer( peer )
 		}catch( err ){
 		}		
 		
+		gc();
+		
 		trace( "removePeer: " + offer_id + " -> " + Object.keys(peers).length );
 	}
 }

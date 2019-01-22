@@ -464,6 +464,7 @@ BrowserManager
 							"--incognito",
 							"--no-default-browser-check",
 							"--no-first-run",
+							"--js-flags=\"--expose-gc\"",
 							"--user-data-dir=" + (Constants.isOSX?data_dir.getAbsolutePath().replaceAll(" ", "\\ "):("\"" + data_dir.getAbsolutePath() + "\""))
 						};
 							
