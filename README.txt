@@ -12,3 +12,11 @@ OSX
         open Chromium.app
     actually works
     build plugin
+    
+Linux
+
+https://ungoogled-software.github.io/ungoogled-chromium-binaries/
+
+Portable Linux 64-bit  ( -> https://www.opendesktop.org/p/1265177/ )
+
+    unzip and rezip
