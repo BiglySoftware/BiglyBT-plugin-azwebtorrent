@@ -164,87 +164,107 @@ BrowserManager
 					}
 				}
 				
-				ZipInputStream zis = null;
+				if ( Constants.isOSX ){
 				
-				try{
-					zis = new ZipInputStream( new BufferedInputStream( new FileInputStream( highest_version_zip_file ) ));
-							
-					byte[] buffer = new byte[64*1024];
+					temp_data.mkdirs();
 					
-					while( true ){
-						
-						ZipEntry	entry = zis.getNextEntry();
-							
-						if ( entry == null ){
-							
-							break;
-						}
+					File temp_zip = new File( temp_data, highest_version_zip_file.getName());
 					
-						String	name = entry.getName();
+					FileUtil.copyFile( highest_version_zip_file, temp_zip );
 					
-						if ( name.endsWith( "/" )){
-							
-							continue;
-						}
-						
-						if ( File.separatorChar != '/' ){
-							
-							name = name.replace( '/', File.separatorChar );
-						}
-						
-						File target_out = new File( temp_data, name );
-						
-						File parent_folder = target_out.getParentFile();
-						
-						if ( !parent_folder.exists()){
-							
-							parent_folder.mkdirs();
-						}
-						
-						OutputStream	entry_os = null;
+					List<String> args = new ArrayList<>();
+					
+					args.add( "open" );
+					args.add( "-W" );
+					args.add( temp_zip.getAbsolutePath());
+					
+					ProcessBuilder pb = GeneralUtils.createProcessBuilder( temp_data, args.toArray(new String[args.size()]), null );
 
-						try{
-							entry_os = new FileOutputStream( target_out );
+					pb.start().waitFor();
+					
+				}else{
+					
+					ZipInputStream zis = null;
+					
+					try{
+						zis = new ZipInputStream( new BufferedInputStream( new FileInputStream( highest_version_zip_file ) ));
+								
+						byte[] buffer = new byte[64*1024];
+						
+						while( true ){
 							
-							while( true ){
+							ZipEntry	entry = zis.getNextEntry();
 								
-								int	len = zis.read( buffer );
+							if ( entry == null ){
 								
-								if ( len <= 0 ){
-									
-									break;
-								}
-																											
-								entry_os.write( buffer, 0, len );
+								break;
 							}
-						}finally{
-							
-							if ( entry_os != null ){
+						
+							String	name = entry.getName();
+						
+							if ( name.endsWith( "/" )){
 								
-								try{
-									entry_os.close();
+								continue;
+							}
+							
+							if ( File.separatorChar != '/' ){
+								
+								name = name.replace( '/', File.separatorChar );
+							}
+							
+							File target_out = new File( temp_data, name );
+							
+							File parent_folder = target_out.getParentFile();
+							
+							if ( !parent_folder.exists()){
+								
+								parent_folder.mkdirs();
+							}
+							
+							OutputStream	entry_os = null;
+	
+							try{
+								entry_os = new FileOutputStream( target_out );
+								
+								while( true ){
 									
-								}catch( Throwable e ){
+									int	len = zis.read( buffer );
 									
-									Debug.out( e );
+									if ( len <= 0 ){
+										
+										break;
+									}
+																												
+									entry_os.write( buffer, 0, len );
+								}
+							}finally{
+								
+								if ( entry_os != null ){
+									
+									try{
+										entry_os.close();
+										
+									}catch( Throwable e ){
+										
+										Debug.out( e );
+									}
 								}
 							}
 						}
-					}
-				}finally{
-					
-					if ( zis != null ){
+					}finally{
 						
-						try{
-							zis.close();
+						if ( zis != null ){
 							
-						}catch( Throwable e ){
-							
-							Debug.out( e );
+							try{
+								zis.close();
+								
+							}catch( Throwable e ){
+								
+								Debug.out( e );
+							}
 						}
 					}
 				}
-					
 				
 				File target_data = new File( plugin_data_dir, "browser_" + highest_version_zip );
 				
