@@ -488,6 +488,12 @@ BrowserManager
 							"--user-data-dir=" + (Constants.isOSX?data_dir.getAbsolutePath().replaceAll(" ", "\\ "):("\"" + data_dir.getAbsolutePath() + "\""))
 						};
 							
+						List<String>	opt_args = new ArrayList<>();
+						
+						if ( plugin.getNoSandbox()){
+							
+							opt_args.add( "--no-sandbox" );
+						}
 						
 						if ( Constants.isWindows ){
 							
@@ -495,6 +501,10 @@ BrowserManager
 							
 							for ( String fa: fixed_args ){
 								args.add( fa );
+							}
+							
+							for ( String oa: opt_args ){
+								args.add( oa );
 							}
 							
 							args.add( url );
@@ -510,12 +520,21 @@ BrowserManager
 							for ( String fa: fixed_args ){
 								args.add( fa );
 							}
+							
+							for ( String oa: opt_args ){
+								args.add( oa );
+							}
+							
 						}else{
 							
 							args.add( "./" + LINUX_APP_NAME );
 							
 							for ( String fa: fixed_args ){
 								args.add( fa );
+							}
+							
+							for ( String oa: opt_args ){
+								args.add( oa );
 							}
 							
 							args.add( url );

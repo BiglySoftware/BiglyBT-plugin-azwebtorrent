@@ -240,7 +240,7 @@ LocalWebServer
 						break;
 					}
 									
-					header += new String( buffer, 0, len, Constants.BYTE_ENCODING );
+					header += new String( buffer, 0, len, Constants.BYTE_ENCODING_CHARSET );
 									
 					if ( 	header.endsWith( NL+NL ) ||
 							header.indexOf( NL+NL ) != -1 ){

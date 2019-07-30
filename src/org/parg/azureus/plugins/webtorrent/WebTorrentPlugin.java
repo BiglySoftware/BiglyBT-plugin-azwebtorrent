@@ -91,6 +91,7 @@ WebTorrentPlugin
 	private BasicPluginViewModel	view_model;
 	
 	private LabelParameter 			status_label;
+	private BooleanParameter		browser_no_sandbox;
 	
 	private BooleanParameter		tracker_enable;
 	private StringParameter			tracker_external;
@@ -211,6 +212,8 @@ WebTorrentPlugin
 					}
 				}
 			});
+		
+		browser_no_sandbox = config_model.addBooleanParameter2( "azwebtorrent.browser.no.sandbox", "azwebtorrent.browser.no.sandbox", false );
 		
 			// tracker
 		
@@ -458,6 +461,12 @@ WebTorrentPlugin
 		gws_server = new GenericWSServer();
 		
 		setupTracker();
+	}
+	
+	protected boolean
+	getNoSandbox()
+	{
+		return( browser_no_sandbox.getValue());
 	}
 	
 	private Set<String>

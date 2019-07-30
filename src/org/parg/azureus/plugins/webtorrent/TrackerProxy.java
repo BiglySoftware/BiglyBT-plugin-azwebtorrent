@@ -608,7 +608,7 @@ TrackerProxy
 						
 						root.put( "files", files );
 						
-						files.put( new String( info_hash,Constants.BYTE_ENCODING ), reply );
+						files.put( new String( info_hash,Constants.BYTE_ENCODING_CHARSET ), reply );
 						
 						reply_bytes = BEncoder.encode( root );
 					}
