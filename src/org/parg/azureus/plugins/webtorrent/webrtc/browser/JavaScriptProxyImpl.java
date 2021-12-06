@@ -20,7 +20,7 @@
  */
 
 
-package org.parg.azureus.plugins.webtorrent.impl;
+package org.parg.azureus.plugins.webtorrent.webrtc.browser;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -43,13 +43,14 @@ import com.biglybt.core.util.SimpleTimer;
 import com.biglybt.core.util.SystemTime;
 import com.biglybt.core.util.TimerEvent;
 import com.biglybt.core.util.TimerEventPerformer;
-import org.parg.azureus.plugins.webtorrent.JavaScriptProxy;
+import org.parg.azureus.plugins.webtorrent.WebRTCProvider;
 import org.parg.azureus.plugins.webtorrent.WebTorrentPlugin;
+import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 
 
 public class 
 JavaScriptProxyImpl 
-	implements JavaScriptProxy
+	implements WebRTCProvider
 {
 	private static Object	lock 			= new Object();
 	private static long		next_offer_id	= RandomUtils.nextAbsoluteLong();
@@ -57,8 +58,8 @@ JavaScriptProxyImpl
 	private static boolean				server_started = false;
 	
 	private static volatile JavaScriptProxyImpl	current_proxy;
-	
-	private static JavaScriptProxyPeerBridge	peer_bridge;
+		
+	private final WebRTCPeerBridge	peer_bridge;
 	
 	private final long	instance_id;	
 	
@@ -74,18 +75,16 @@ JavaScriptProxyImpl
 	public
 	JavaScriptProxyImpl(
 		WebTorrentPlugin		_plugin,
+		WebRTCPeerBridge		_peer_bridge,
 		long					_instance_id,
 		final Callback			_callback )
 		
 		throws Exception
 	{		
+		peer_bridge = _peer_bridge;
+		
 		synchronized( lock ){
-			
-			if ( peer_bridge == null ){
-				
-				peer_bridge = new JavaScriptProxyPeerBridge( _plugin );
-			}
-			
+						
 			instance_id		= _instance_id;
 			
 			current_proxy	= this;
@@ -365,73 +364,6 @@ JavaScriptProxyImpl
 	}
 	
 	@Override
-	public Offer 
-	getOffer(
-		byte[]		info_hash,
-		long		timeout )
-	{
-		if ( current_instance_sem.reserve( timeout )){
-			
-			JavaScriptProxyInstance	inst;
-			
-			String	offer_id;
-			
-			OfferAnswerImpl	offer;
-			
-			synchronized( lock ){
-			
-				inst = current_instance;
-				
-				if ( inst == null ){
-					
-					return( null );
-				}
-				
-				long oid = next_offer_id++;
-				
-				if ( oid == 0 ){
-					
-					oid = next_offer_id++;
-				}
-				
-				offer_id = String.valueOf( oid );
-				
-				offer = new OfferAnswerImpl( inst, offer_id, timeout, (OfferListener)null );
-				
-				offer_answer_map.put( offer_id, offer );
-			}
-				
-			try{
-				Map<String,Object>	message = new HashMap<>();
-					
-				message.put( "type", "create_offer" );
-				message.put( "info_hash", Base32.encode( info_hash ));
-				message.put( "offer_id", offer_id );
-					
-				inst.sendControlMessage( message );
-				
-				if ( offer.waitFor( timeout )){
-					
-					synchronized( lock ){
-						
-						offer_answer_map.remove( offer_id );
-					}
-					
-					return( offer );
-				}
-			}catch( Throwable e ){
-				
-				synchronized( lock ){
-					
-					offer_answer_map.remove( offer_id );
-				}
-			}
-		}
-		
-		return( null );
-	}
-	
-	@Override
 	public void 
 	getOffer(
 		byte[]			info_hash,
@@ -531,7 +463,7 @@ JavaScriptProxyImpl
 		byte[]							info_hash,
 		String 							external_offer_id, 
 		String 							sdp,
-		JavaScriptProxy.AnswerListener	listener )
+		WebRTCProvider.AnswerListener	listener )
 	{
 		if ( current_instance_sem.reserve( 10*1000 )){
 			

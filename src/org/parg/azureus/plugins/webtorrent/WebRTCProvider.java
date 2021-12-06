@@ -22,19 +22,79 @@
 
 package org.parg.azureus.plugins.webtorrent;
 
-import org.parg.azureus.plugins.webtorrent.impl.JavaScriptProxyImpl;
-
-public class 
-JavaScriptProxyManager 
+public interface 
+WebRTCProvider 
 {
-	public static JavaScriptProxy
-	getProxy(
-		WebTorrentPlugin			plugin,
-		long						instance_id,
-		JavaScriptProxy.Callback	callback )
+	public int
+	getPort();
 		
-		throws Exception
+	public void
+	getOffer(
+		byte[]			info_hash,
+		long			timeout,
+		OfferListener	offer_listener );
+	
+	public void
+	gotAnswer(
+		String		offer_id,
+		String		sdp );
+	
+	public void
+	gotOffer(
+		byte[]			info_hash,
+		String			offer_id,
+		String			sdp,
+		AnswerListener	listener );
+	
+	public void
+	destroy();
+	
+	public interface
+	Offer
 	{
-		return( new JavaScriptProxyImpl( plugin, instance_id, callback ));
+		public String
+		getOfferID();
+		
+		public String
+		getSDP();
 	}
+	
+	public interface
+	Answer
+	{
+		public String
+		getOfferID();
+		
+		public String
+		getSDP();
+	}
+	
+	public interface
+	AnswerListener
+	{
+		public void
+		gotAnswer(
+			Answer		answer );
+		
+		public void
+		failed();
+	}
+	
+	public interface
+	OfferListener
+	{
+		public void
+		gotOffer(
+			Offer		offer );
+		
+		public void
+		failed();
+	}
+	
+    public interface
+    Callback
+    {
+    	public void
+    	requestNewBrowser();
+    }
 }

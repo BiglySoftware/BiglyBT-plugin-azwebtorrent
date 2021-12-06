@@ -20,7 +20,7 @@
  */
 
 
-package org.parg.azureus.plugins.webtorrent.impl;
+package org.parg.azureus.plugins.webtorrent.webrtc;
 
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -48,7 +48,7 @@ import com.biglybt.core.proxy.AEProxyAddressMapper;
 import com.biglybt.core.proxy.AEProxyFactory;
 
 public class 
-JavaScriptProxyPeerBridge 
+WebRTCPeerBridge 
 {
 	private static byte[] fake_header_and_reserved = new byte[1+19+8];
 
@@ -62,12 +62,29 @@ JavaScriptProxyPeerBridge
 		System.arraycopy( reserved,0,fake_header_and_reserved, 20, 8 );
 	}
 	
+	private static WebRTCPeerBridge singleton;
+	
+	public static WebRTCPeerBridge
+	getSingleton(
+		WebTorrentPlugin		plugin )
+	{
+		synchronized( WebRTCPeerBridge.class ){
+			
+			if ( singleton == null ){
+				
+				singleton = new WebRTCPeerBridge( plugin );
+			}
+			
+			return( singleton );
+		}
+	}
+	
 	private WebTorrentPlugin	plugin;
 	
-	private Map<JavaScriptProxyInstance,Connection>		peer_map = new HashMap<>();
+	private Map<WebRTCPeer,Connection>		peer_map = new HashMap<>();
 	
 	public
-	JavaScriptProxyPeerBridge(
+	WebRTCPeerBridge(
 		WebTorrentPlugin		_plugin )
 	{
 		plugin = _plugin;
@@ -75,12 +92,17 @@ JavaScriptProxyPeerBridge
 	
 	public void
 	addPeer(
-		JavaScriptProxyInstance		peer )
+		WebRTCPeer		peer )
 	{		
 		Connection connection = new Connection( peer );
 		
 		synchronized( peer_map ){
 		
+			if ( peer.isDestroyed()){
+				
+				return;
+			}
+			
 			peer_map.put( peer, connection );
 			
 			//System.out.println( "addPeer: " + peer.getOfferID() + ", peers=" + peer_map.size());
@@ -99,7 +121,7 @@ JavaScriptProxyPeerBridge
 	
 	public void
 	removePeer(
-		JavaScriptProxyInstance		peer )
+		WebRTCPeer		peer )
 	{		
 		Connection connection;
 		
@@ -165,8 +187,8 @@ JavaScriptProxyPeerBridge
 	
 	public void
 	receive(
-		JavaScriptProxyInstance		peer,
-		ByteBuffer					data )
+		WebRTCPeer			peer,
+		ByteBuffer			data )
 	{
 		//System.out.println( "receive: " + peer.getOfferID());
 		
@@ -191,8 +213,8 @@ JavaScriptProxyPeerBridge
 	private class
 	Connection
 	{
-		private	JavaScriptProxyInstance				proxy;
-		private Socket								vuze_socket;
+		private	WebRTCPeer							web_rtc_peer;
+		private Socket								socket;
 		
 		private String								remote_ip;
 		private Peer								peer;
@@ -207,9 +229,9 @@ JavaScriptProxyPeerBridge
 		
 		private
 		Connection(
-			JavaScriptProxyInstance		_proxy )
+			WebRTCPeer		_web_rtc_peer )
 		{
-			proxy	= _proxy;
+			web_rtc_peer	= _web_rtc_peer;
 		}
 		
 		private Peer
@@ -220,7 +242,7 @@ JavaScriptProxyPeerBridge
 				if ( peer == null ){
 					
 					try{
-						Download download = plugin.getPluginInterface().getDownloadManager().getDownload( proxy.getInfoHash());
+						Download download = plugin.getPluginInterface().getDownloadManager().getDownload( web_rtc_peer.getInfoHash());
 						
 						if ( download != null ){
 							
@@ -253,19 +275,19 @@ JavaScriptProxyPeerBridge
 			boolean	ok = false;
 			
 			try{
-				vuze_socket = new Socket( Proxy.NO_PROXY );
+				socket = new Socket( Proxy.NO_PROXY );
 
-				vuze_socket.bind( null );
+				socket.bind( null );
 				
-				final int local_port = vuze_socket.getLocalPort();
+				final int local_port = socket.getLocalPort();
 				
 					// we need to pass the peer_ip to the core so that it doesn't just see '127.0.0.1'
 				
-				remote_ip = proxy.getRemoteIP();
+				remote_ip = web_rtc_peer.getRemoteIP();
 								
 				if ( remote_ip == null ){
 					
-					remote_ip = "websocket." + ( proxy.isIncoming()?1:0) + local_port;
+					remote_ip = "Websocket." + local_port;
 				}
 				
 				Map<String,Object>	props = new HashMap<String, Object>();
@@ -282,17 +304,17 @@ JavaScriptProxyPeerBridge
 					bind = InetAddress.getByName( "127.0.0.1" );
 				}
 				
-				vuze_socket.connect( new InetSocketAddress( bind, COConfigurationManager.getIntParameter( "TCP.Listen.Port" )));
+				socket.connect( new InetSocketAddress( bind, COConfigurationManager.getIntParameter( "TCP.Listen.Port" )));
 			
-				vuze_socket.setTcpNoDelay( true );
+				socket.setTcpNoDelay( true );
 	
-				if ( proxy.isIncoming()){
+				if ( web_rtc_peer.isIncoming()){
 					
-					OutputStream	os = vuze_socket.getOutputStream();
+					OutputStream	os = socket.getOutputStream();
 					
 					os.write( fake_header_and_reserved );
 					
-					os.write( proxy.getInfoHash());
+					os.write( web_rtc_peer.getInfoHash());
 					
 					os.flush();
 					
@@ -300,7 +322,7 @@ JavaScriptProxyPeerBridge
 					
 				}
 				
-				final InputStream is = vuze_socket.getInputStream();
+				final InputStream is = socket.getInputStream();
 				
 				new AEThread2( "WebSocket:pipe" )
 				{
@@ -319,11 +341,13 @@ JavaScriptProxyPeerBridge
 									break;
 								}
 								
-								proxy.sendPeerMessage( ByteBuffer.wrap( buffer, 0, len ));
+								web_rtc_peer.sendPeerMessage( ByteBuffer.wrap( buffer, 0, len ));
 								
 								total_sent += len;
 							}
 						}catch( Throwable e ){
+							
+							// Debug.out( e );
 							
 						}finally{
 							
@@ -377,13 +401,19 @@ JavaScriptProxyPeerBridge
 			}
 			
 			try{
-				OutputStream os = vuze_socket.getOutputStream();
+				OutputStream os = socket.getOutputStream();
 				
-				os.write( data.array(), data.arrayOffset() + data.position(), data.remaining() );
+				byte[]	buffer = new byte[data.remaining()];
+				
+				data.get( buffer );
+				
+				os.write( buffer );
 				
 				os.flush();
 				
 			}catch( Throwable e ){
+				
+				// Debug.out( e );
 				
 				destroy();
 			}
@@ -394,9 +424,9 @@ JavaScriptProxyPeerBridge
 		{
 			Map<String,Object>	result = new HashMap<>();
 			
-			result.put( "offer_id", String.valueOf( proxy.getOfferID()));
+			result.put( "offer_id", String.valueOf( web_rtc_peer.getOfferID()));
 			
-			result.put( "ip", proxy.getRemoteIP());
+			result.put( "ip", web_rtc_peer.getRemoteIP());
 			
 			Peer peer = fixup();
 			
@@ -424,21 +454,21 @@ JavaScriptProxyPeerBridge
 		destroy()
 		{
 			try{
-				if ( vuze_socket != null ){
+				if ( socket != null ){
 				
 					try{
-						vuze_socket.close();
+						socket.close();
 					
-						vuze_socket = null;
+						socket = null;
 						
 					}catch( Throwable e ){
 					}
 				}
 				
-				if ( proxy != null ){
+				if ( web_rtc_peer != null ){
 					
 					try{
-						proxy.destroy();
+						web_rtc_peer.destroy();
 						
 					}catch( Throwable e ){
 						
@@ -455,7 +485,7 @@ JavaScriptProxyPeerBridge
 				
 				synchronized( peer_map ){
 					
-					peer_map.remove( proxy );
+					peer_map.remove( web_rtc_peer );
 				}
 			}
 		}

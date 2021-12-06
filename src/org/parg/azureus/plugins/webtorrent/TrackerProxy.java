@@ -34,11 +34,11 @@ import java.util.Map;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
-import javax.websocket.ClientEndpointConfig;
-import javax.websocket.Endpoint;
-import javax.websocket.EndpointConfig;
-import javax.websocket.MessageHandler;
-import javax.websocket.Session;
+import jakarta.websocket.ClientEndpointConfig;
+import jakarta.websocket.Endpoint;
+import jakarta.websocket.EndpointConfig;
+import jakarta.websocket.MessageHandler;
+import jakarta.websocket.Session;
 
 import org.glassfish.grizzly.ssl.SSLEngineConfigurator;
 import org.glassfish.tyrus.client.ClientManager;
@@ -54,8 +54,8 @@ import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.RandomUtils;
 import com.biglybt.core.util.SystemTime;
 import com.biglybt.pifimpl.local.clientid.ClientIDManagerImpl;
-import org.parg.azureus.plugins.webtorrent.JavaScriptProxy.Answer;
-import org.parg.azureus.plugins.webtorrent.JavaScriptProxy.Offer;
+import org.parg.azureus.plugins.webtorrent.WebRTCProvider.Answer;
+import org.parg.azureus.plugins.webtorrent.WebRTCProvider.Offer;
 
 import com.biglybt.util.JSONUtils;
 
@@ -200,7 +200,7 @@ TrackerProxy
 
 						listener.getOffer( 
 							info_hash, read_timeout - 5*1000,
-							new JavaScriptProxy.OfferListener() {
+							new WebRTCProvider.OfferListener() {
 								
 								boolean done = false;
 								
@@ -248,43 +248,8 @@ TrackerProxy
 			}
 			
 			if ( offers != null || scrape || is_stop ){
-				
-												
-				/*
-				Map<String,Object> announce_map = new HashMap<String,Object>();
-				
-				announce_map.put( "numwant", numwant );
-				announce_map.put( "uploaded", uploaded );
-				announce_map.put( "downloaded", downloaded );
-				if ( event != null ){
-					announce_map.put( "event", event );
-				}
-				announce_map.put( "info_hash", encodeCrap( info_hash ));
-				announce_map.put( "peer_id", "-WW0063-8a3c574bbf70" );// encodeCrap( peer_id ));
-				
-				List<Map> offers = new ArrayList<Map>();
-				
-				Map<String,Object> offer_outer = new HashMap<>();
-				Map<String,Object> offer_inner = new HashMap<>();
-				
-				offer_inner.put( "type", "offer" );
-				
-				String working_offer = encodeCrap("v=0\r\no=- 1861226001015807639 2 IN IP4 127.0.0.1\r\ns=-\r\nt=0 0\r\na=msid-semantic: WMS\r\nm=application 12897 DTLS/SCTP 5000\r\nc=IN IP4 52.27.228.126\r\na=candidate:211156821 1 udp 2122260223 192.168.1.5 60711 typ host generation 0\r\na=candidate:964701137 1 udp 2122194687 169.254.111.217 60712 typ host generation 0\r\na=candidate:1839720110 1 udp 2122129151 192.168.201.1 60713 typ host generation 0\r\na=candidate:2999745851 1 udp 2122063615 192.168.56.1 60714 typ host generation 0\r\na=candidate:2527468734 1 udp 2121998079 169.254.138.101 60715 typ host generation 0\r\na=candidate:1108738981 1 tcp 1518280447 192.168.1.5 0 typ host tcptype active generation 0\r\na=candidate:1996740385 1 tcp 1518214911 169.254.111.217 0 typ host tcptype active generation 0\r\na=candidate:589568606 1 tcp 1518149375 192.168.201.1 0 typ host tcptype active generation 0\r\na=candidate:4233069003 1 tcp 1518083839 192.168.56.1 0 typ host tcptype active generation 0\r\na=candidate:3626360910 1 tcp 1518018303 169.254.138.101 0 typ host tcptype active generation 0\r\na=candidate:2781507712 1 udp 1686052607 207.140.28.98 60711 typ srflx raddr 192.168.1.5 rport 60711 generation 0\r\na=candidate:1392442185 1 udp 41885439 52.27.228.126 12897 typ relay raddr 207.140.28.98 rport 60711 generation 0\r\na=ice-ufrag:qC4tVJ3Z5FjY8jJm\r\na=ice-pwd:bVpH0lVsz15UbHlrMWuf4mfv\r\na=fingerprint:sha-256 0A:02:71:70:54:0E:3B:DB:EA:C3:3A:3A:F3:A1:ED:EA:C4:A5:57:DF:51:EE:F2:1C:A0:0B:55:9F:8D:13:63:00\r\na=setup:actpass\r\na=mid:data\r\na=sctpmap:5000 webrtc-datachannel 1024\r\n" ); 
-	
-				offer_inner.put( "sdp", working_offer  ); // encodeCrap( offer_sdp ));
-				
-				offer_outer.put( "offer", offer_inner );
-				offer_outer.put( "offer_id", String.valueOf( rand ) );
-				
-				offers.add( offer_outer );
-				
-				announce_map.put( "offers", offers );
-				
-				final String	announce = JSONUtils.encodeToJSON( announce_map );
-				
-				*/
-				
-					// roll it by hand, something in the above fucks up
+								
+					// roll it by hand, something messes up if we try and use JSONUtils :(
 				
 				String offer_str = "";
 				
@@ -294,7 +259,7 @@ TrackerProxy
 						
 						offer_str += 
 							(offer_str.length()==0?"":",") + 
-							"{\"offer\":{\"type\":\"offer\",\"sdp\":\"" + WebTorrentPlugin.encodeForJSON( offer.getSDP()) + "\"},\"offer_id\":\"" + offer.getOfferID() + "\"}";
+							"{\"offer\":{\"type\":\"offer\",\"sdp\":\"" + WebTorrentPlugin.encodeForJSON( offer.getSDP()) + "\"},\"offer_id\":\"" + WebTorrentPlugin.encodeForJSON( offer.getOfferID()) + "\"}";
 					}
 				}
 								
@@ -313,9 +278,7 @@ TrackerProxy
 	        			",\"peer_id\":\"" + WebTorrentPlugin.encodeForJSON( peer_id ) + "\"" +
 	        			(scrape?"":( ",\"offers\":[" + offer_str + "]" )) +
 	        			"}";
-				
-	        	trace( ByteFormatter.encodeString( info_hash ));
-	        			
+	        		        			
 	        	trace( "sending: " + announce );
 	        	
 	        	ClientSession	client_session = null;
@@ -376,7 +339,7 @@ TrackerProxy
 				                            onMessage(
 				                            	String message ) 
 				                            {
-				                            	trace("Received message: " + message);
+				                            	trace("Received message from " + ws_url + ", offers=" + (offers==null?null:offers.size()) + ": " + message);
 	
 				                            	Map map = JSONUtils.decodeJSON( message );
 				                            			                            	
@@ -427,18 +390,18 @@ TrackerProxy
 					                            				hash, 
 					                            				offer_id, 
 					                            				sdp,
-					                            				new JavaScriptProxy.AnswerListener() {
+					                            				new WebRTCProvider.AnswerListener() {
 																	
 																	@Override
 																	public void 
 																	gotAnswer(
 																		Answer answer ) 
 																	{
-																		String answer_str = "{\"answer\":{\"type\":\"answer\",\"sdp\":\"" + 
+																		String answer_str = "{\"action\":\"announce\",\"answer\":{\"type\":\"answer\",\"sdp\":\"" + 
 																				WebTorrentPlugin.encodeForJSON( answer.getSDP()) + "\"}," + 
 																				"\"offer_id\":\"" + WebTorrentPlugin.encodeForJSON( answer.getOfferID()) + "\"," + 
 																				"\"peer_id\":\"" + WebTorrentPlugin.encodeForJSON( peer_id ) + "\"," + 
-																				"\"to_peer_id\":\"" + to_peer_id + "\"," + 
+																				"\"to_peer_id\":\"" + WebTorrentPlugin.encodeForJSON( to_peer_id ) + "\"," + 
 																				"\"info_hash\":\"" + WebTorrentPlugin.encodeForJSON( hash ) + "\"" + 
 																				"}";
 	
@@ -447,9 +410,13 @@ TrackerProxy
 																		try{
 																			session.getBasicRemote().sendText( answer_str );
 																			
+																			trace( "    answer sent" );
+																			
 																		 }catch( Throwable e ){
 										                            			
 											                            	//	Debug.out( e );
+																			 
+																			 trace( "Failed to send answer: " + Debug.getNestedExceptionMessage( e ));
 																		 }
 																	}
 																	
@@ -458,6 +425,9 @@ TrackerProxy
 																	{
 																	}
 																});
+				                            			}else{
+				                            				
+				                            				trace( "Peer id for " + ByteFormatter.encodeString( hash ) + " not found" );
 				                            			}
 				                            		}catch( Throwable e ){
 				                            			
@@ -692,16 +662,11 @@ TrackerProxy
     public interface
     Listener
     {
-    	public JavaScriptProxy.Offer
-    	getOffer(
-    		byte[]		hash,
-    		long		timeout );
-    	
     	public void
     	getOffer(
     		byte[]							hash,
     		long							timeout,
-    		JavaScriptProxy.OfferListener	offer_listener );
+    		WebRTCProvider.OfferListener	offer_listener );
     	
     	public void
     	gotAnswer(
@@ -716,7 +681,7 @@ TrackerProxy
     		byte[]							hash,
     		String							offer_id,
     		String							sdp,
-    		JavaScriptProxy.AnswerListener	listener )
+    		WebRTCProvider.AnswerListener	listener )
     		
     		throws Exception;
     }

@@ -20,7 +20,7 @@
  */
 
 
-package org.parg.azureus.plugins.webtorrent.impl;
+package org.parg.azureus.plugins.webtorrent.webrtc.browser;
 
 import java.io.IOException;
 import java.net.Inet4Address;
@@ -33,15 +33,17 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.websocket.DeploymentException;
-import javax.websocket.OnClose;
-import javax.websocket.OnError;
-import javax.websocket.OnMessage;
-import javax.websocket.OnOpen;
-import javax.websocket.Session;
-import javax.websocket.server.ServerEndpoint;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.OnClose;
+import jakarta.websocket.OnError;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.OnOpen;
+import jakarta.websocket.Session;
+import jakarta.websocket.server.ServerEndpoint;
 
 import org.glassfish.tyrus.server.Server;
+import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeer;
+
 import com.biglybt.core.util.Base32;
 import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.RandomUtils;
@@ -51,6 +53,7 @@ import com.biglybt.util.JSONUtils;
 @ServerEndpoint("/vuze")
 public class 
 JavaScriptProxyInstance 
+	implements WebRTCPeer
 {
 	private static List<Logger>	loggers = new ArrayList<Logger>();
 	
@@ -140,7 +143,8 @@ JavaScriptProxyInstance
     private byte[]		info_hash;
     
     private Session		session;
-    private boolean		destroyed;
+    
+    private volatile boolean		destroyed;
     
 	protected long
 	getInstanceID()
@@ -148,31 +152,31 @@ JavaScriptProxyInstance
 		return( instance_id );
 	}
 	
-	protected long
+	public long
 	getOfferID()
 	{
 		return( offer_id );
 	}
 	
-	protected boolean
+	public boolean
 	isIncoming()
 	{
 		return( is_incoming );
 	}
 	
-	protected String
+	public String
 	getRemoteIP()
 	{
 		return( remote_ip );
 	}
 	
-	protected byte[]
+	public byte[]
 	getInfoHash()
 	{
 		return( info_hash );
 	}
 	
-	protected boolean
+	public boolean
 	isDestroyed()
 	{
 		return( destroyed );
@@ -329,7 +333,7 @@ JavaScriptProxyInstance
     	}
     }
     
-    protected void
+    public void
     sendPeerMessage(
     	ByteBuffer		buffer )
     	
@@ -387,7 +391,7 @@ JavaScriptProxyInstance
     	}
     }
     
-    protected void
+    public void
     destroy()
     {
     	destroyed	= true;

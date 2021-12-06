@@ -81,6 +81,20 @@ WebTorrentPlugin
 {
 	private static final long instance_id = RandomUtils.nextSecureAbsoluteLong();
 		
+	// http://olegh.ftp.sh/public-stun.txt
+
+	private String[] ice_urls = {
+			"stun:stun.l.google.com:19302",
+			"stun:global.stun.twilio.com:3478",
+			
+			"stun:stun1.l.google.com:19302",
+			"stun:stun2.l.google.com:19302",
+			"stun:stun3.l.google.com:19302",
+			"stun:stun4.l.google.com:19302",
+	};
+
+	
+
 	private static final String DEFAULT_EXTERNAL_TRACKERS	= "wss://tracker.openwebtorrent.com/";
 	
 	private PluginInterface	plugin_interface;
@@ -91,6 +105,8 @@ WebTorrentPlugin
 	private BasicPluginViewModel	view_model;
 	
 	private LabelParameter 			status_label;
+	
+	private BooleanParameter		browser_impl;
 	private BooleanParameter		browser_no_sandbox;
 	
 	private BooleanParameter		tracker_enable;
@@ -106,7 +122,7 @@ WebTorrentPlugin
 	
 	private LocalWebServer	web_server;
 	private TrackerProxy	tracker_proxy;
-	private JavaScriptProxy	js_proxy;
+	private WebRTCProvider	webrtc_provider;
 		
 	private BrowserManager	browser_manager = new BrowserManager();
 	
@@ -176,11 +192,12 @@ WebTorrentPlugin
 		
 		config_model.addLabelParameter2( "azwebtorrent.blank" );
 
-		
-	
 		status_label = config_model.addLabelParameter2( "azwebtorrent.status");
 
-		config_model.addLabelParameter2( "azwebtorrent.browser.info" );
+		
+		browser_impl = config_model.addBooleanParameter2( "azwebtorrent.impl.browser", "azwebtorrent.impl.browser", false );
+
+		LabelParameter browser_info = config_model.addLabelParameter2( "azwebtorrent.browser.info" );
 
 		final ActionParameter browser_launch_param = config_model.addActionParameter2( "azwebtorrent.browser.launch", "azwebtorrent.browser.launch.button" );
 		
@@ -214,6 +231,8 @@ WebTorrentPlugin
 			});
 		
 		browser_no_sandbox = config_model.addBooleanParameter2( "azwebtorrent.browser.no.sandbox", "azwebtorrent.browser.no.sandbox", false );
+		
+		browser_impl.addEnabledOnSelection( browser_info, browser_launch_param, browser_no_sandbox );
 		
 			// tracker
 		
@@ -463,6 +482,18 @@ WebTorrentPlugin
 		setupTracker();
 	}
 	
+	public boolean
+	useBrowserImplementation()
+	{
+		return( browser_impl.getValue());
+	}
+	
+	public String[]
+	getICEUrls()
+	{
+		return( ice_urls );
+	}
+	
 	protected boolean
 	getNoSandbox()
 	{
@@ -601,11 +632,11 @@ WebTorrentPlugin
 				log( "Activating" );
 				
 				try{
-					js_proxy = 
-						JavaScriptProxyManager.getProxy( 
+					webrtc_provider = 
+						WebRTCProviderManager.getProxy( 
 							this, 
 							instance_id,
-							new JavaScriptProxy.Callback() {
+							new WebRTCProvider.Callback() {
 								
 								@Override
 								public void 
@@ -620,23 +651,14 @@ WebTorrentPlugin
 							this,
 							new TrackerProxy.Listener()
 							{
-								@Override
-						    	public JavaScriptProxy.Offer
-						    	getOffer(
-						    		byte[]		hash,
-						    		long		timeout )
-						    	{
-						    		return( js_proxy.getOffer( hash, timeout ));
-						    	}
-						    	
 						    	@Override
 						    	public void 
 						    	getOffer(
 						    		byte[] 							hash, 
 						    		long 							timeout,
-						    		JavaScriptProxy.OfferListener	offer_listener) 
+						    		WebRTCProvider.OfferListener	offer_listener) 
 						    	{
-						    		js_proxy.getOffer( hash, timeout, offer_listener );
+						    		webrtc_provider.getOffer( hash, timeout, offer_listener );
 						    	}
 						    	
 						    	@Override
@@ -648,7 +670,7 @@ WebTorrentPlugin
 						    		
 						    		throws Exception
 						    	{
-						    		js_proxy.gotAnswer( offer_id, sdp );
+						    		webrtc_provider.gotAnswer( offer_id, sdp );
 						    	}
 						    	
 						    	@Override
@@ -657,19 +679,22 @@ WebTorrentPlugin
 						    		byte[]							hash,
 						    		String							offer_id,
 						    		String							sdp,
-						    		JavaScriptProxy.AnswerListener 	listener )
+						    		WebRTCProvider.AnswerListener 	listener )
 						    		
 						    		throws Exception
 						    	{
-						    		js_proxy.gotOffer( hash, offer_id, sdp, listener );
+						    		webrtc_provider.gotOffer( hash, offer_id, sdp, listener );
 						    	}
 							});
 					
-					web_server = new LocalWebServer( instance_id, js_proxy.getPort(), tracker_proxy );
+					web_server = new LocalWebServer( ice_urls, instance_id, webrtc_provider.getPort(), tracker_proxy );
 						
 					status_label.setLabelText( loc_utils.getLocalisedMessageText( "azwebtorrent.status.ok" ));
 	
-					launchBrowser( callback );
+					if ( useBrowserImplementation()){
+
+						launchBrowser( callback );
+					}
 				
 					async = true;
 					
@@ -741,17 +766,17 @@ WebTorrentPlugin
 				tracker_proxy = null;
 			}
 			
-			if ( js_proxy != null ){
+			if ( webrtc_provider != null ){
 				
 				try{
 					
-					js_proxy.destroy();
+					webrtc_provider.destroy();
 					
 				}catch( Throwable f ){
 					
 				}
 				
-				js_proxy = null;
+				webrtc_provider = null;
 			}
 		}
 	}
@@ -1031,7 +1056,7 @@ WebTorrentPlugin
 		gws_server.unload();
 	}
 	
-	protected void
+	public void
 	setStatusError(
 		Throwable	e )
 	{
@@ -1048,14 +1073,14 @@ WebTorrentPlugin
 		return( plugin_interface );
 	}
 	
-	protected void
+	public void
 	log(
 		String		str )
 	{
 		log.log( str );
 	}
 	
-	protected void
+	public void
 	log(
 		String		str,
 		Throwable	e )
@@ -1102,7 +1127,7 @@ WebTorrentPlugin
     	
     	for (char c: str_in.toCharArray()){
     		
-			if ( c <= 255 && ( Character.isLetterOrDigit((char)c) || " {}:.=-".indexOf( c ) != -1)){
+			if ( c <= 255 && c != '\\' && ( Character.isLetterOrDigit((char)c) || " {}:.=-".indexOf( c ) != -1)){
     		
     			str += c;
     			

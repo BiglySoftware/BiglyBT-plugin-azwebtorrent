@@ -47,18 +47,7 @@ import com.biglybt.util.JSONUtils;
 
 public class 
 LocalWebServer 
-{
-		// http://olegh.ftp.sh/public-stun.txt
-
-	private static String[] ice_urls = {
-		"stun:stun.l.google.com:19302",
-		"stun:stun1.l.google.com:19302",
-		"stun:stun2.l.google.com:19302",
-		"stun:stun3.l.google.com:19302",
-		"stun:stun4.l.google.com:19302",
-	};
-
-	
+{	
 	private String		ws_config;
 	
 	private long		instance_id;
@@ -71,6 +60,7 @@ LocalWebServer
 	
 	public
 	LocalWebServer(
+		String[]	_ice_urls,
 		long		_instance_id,
 		int			_ws_port,
 		Listener	_listener )
@@ -97,7 +87,7 @@ LocalWebServer
 		
 		List<String>	urls = new ArrayList<>();
 
-		for ( String url: ice_urls ){
+		for ( String url: _ice_urls ){
 			
 			urls.add( url );
 			

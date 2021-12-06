@@ -211,17 +211,27 @@ var timer =
 			    	
 			    	var age = now - peer.create_time;
 			    	
-			    	if ( age > 2*60*1000 ){
+			    	var ice_state = peer.iceConnectionState;
 			    	
-			    		var ice_state = peer.iceConnectionState;
+			    	if ( ice_state == 'connected' || ice_state == 'completed' ){
+			    	
+				    	peer.last_ok_time = now;
+				    	
+				    }else{
 
-			    		if ( ice_state == 'connected' || ice_state == 'completed' || ice_state == 'disconnected' ){
+				    	if ( age > 2*60*1000 ){
+			    	
+
+			    			if ( ice_state == 'disconnected' ){
 			    			
-			    			// looks ok
+			    				if ( now - peer.last_ok_time > 60*1000 ){
 			    			
-			    		}else{
+			    					removePeer( peer );
+			    				}
+				    		}else{
 			    			
-			    			removePeer( peer );
+			    				removePeer( peer );
+			    			}
 			    		}
 			    	}
 			    	
@@ -247,8 +257,9 @@ function addPeer( peer )
 {	
 	var offer_id = peer.offer_id;
 	
-	peer.create_time = new Date().getTime();
-
+	peer.create_time 	= new Date().getTime();
+	peer.last_ok_time 	= 0;
+	
 	peers[ offer_id ] = peer;
 	
 	trace( "addPeer: " + offer_id + " -> " + Object.keys(peers).length );
