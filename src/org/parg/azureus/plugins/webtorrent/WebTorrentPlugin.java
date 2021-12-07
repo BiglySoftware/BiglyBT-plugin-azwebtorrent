@@ -77,7 +77,7 @@ import org.parg.azureus.plugins.webtorrent.GenericWSServer.ServerWrapper;
 
 public class 
 WebTorrentPlugin 
-	implements UnloadablePlugin
+	implements Plugin
 {
 	private static final long instance_id = RandomUtils.nextSecureAbsoluteLong();
 		
@@ -1015,10 +1015,12 @@ WebTorrentPlugin
 	
 		// end of test
 	
-	
+	/*
 	public void
 	unload()
 	{
+		// not unloadable with native impl and classloading issues
+		 * 
 		unloaded	= true;
 		
 		if ( config_model != null ){
@@ -1055,6 +1057,7 @@ WebTorrentPlugin
 		
 		gws_server.unload();
 	}
+	*/
 	
 	public void
 	setStatusError(

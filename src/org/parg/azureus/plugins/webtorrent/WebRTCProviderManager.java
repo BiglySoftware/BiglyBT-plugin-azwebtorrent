@@ -24,7 +24,7 @@ package org.parg.azureus.plugins.webtorrent;
 
 import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 import org.parg.azureus.plugins.webtorrent.webrtc.browser.JavaScriptProxyImpl;
-import org.parg.azureus.plugins.webtorrent.webrtc.local.WebRTCLocalImpl;
+import org.parg.azureus.plugins.webtorrent.webrtc.local.WebRTCLocalLoader;
 
 public class 
 WebRTCProviderManager 
@@ -45,7 +45,7 @@ WebRTCProviderManager
 			
 		}else{
 			
-			return( new WebRTCLocalImpl( plugin, bridge, instance_id, callback ));
+			return( WebRTCLocalLoader.load( plugin, bridge, instance_id, callback ));
 		}
 	}
 }
