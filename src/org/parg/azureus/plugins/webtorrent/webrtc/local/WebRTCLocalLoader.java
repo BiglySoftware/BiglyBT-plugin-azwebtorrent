@@ -31,11 +31,18 @@ import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 
 import com.biglybt.pif.PluginInterface;
 
-import net.bytebuddy.agent.ByteBuddyAgent;
+// import net.bytebuddy.agent.ByteBuddyAgent;
 
 public class 
 WebRTCLocalLoader
 {
+		/*
+		 * Prior to version 0.6.0 of web-rtc it would crash when not loaded via the system class loader
+		 * so we had to hack the system class loader to ensure this
+		 */
+	
+	private static final boolean HAS_CLASSLOADER_BUG = false;
+	
 	public static WebRTCProvider
 	load(
 		WebTorrentPlugin		_plugin,
@@ -45,53 +52,57 @@ WebRTCLocalLoader
 	
 		throws Exception
 	{
-		boolean	already_loaded = false;
-		
-		try{
-			Class.forName( 
-				"dev.onvoid.webrtc.PeerConnectionFactory", 
-				true, 
-				ClassLoader.getSystemClassLoader());
+		if ( HAS_CLASSLOADER_BUG ){	
 			
-			already_loaded = true;
+			/*
+			boolean	already_loaded = false;
 			
-		}catch( Throwable e ){
-		}
-		
-		if ( !already_loaded ){
-			
-			PluginInterface pi = _plugin.getPluginInterface();
-			
-			Instrumentation inst = ByteBuddyAgent.install();
-			
-			URL[] urls = ((URLClassLoader)pi.getPluginClassLoader()).getURLs();
-					
-			for ( URL url: urls ){
-	
-				try{
-					File f = new File(url.toURI());
-					
-					if ( f.exists()){
-						
-						String name = f.getName();
-					
-						if ( name.startsWith( "webrtc-java" )){
-	
-							JarFile	jf = new JarFile( f );
-			
-							inst.appendToSystemClassLoaderSearch( jf );
-						}
-					}
-				}catch( Throwable e ){
-					
-				}
-			}
-			
-			Class.forName( 
+			try{
+				Class.forName( 
 					"dev.onvoid.webrtc.PeerConnectionFactory", 
 					true, 
 					ClassLoader.getSystemClassLoader());
-
+				
+				already_loaded = true;
+				
+			}catch( Throwable e ){
+			}
+			
+			if ( !already_loaded ){
+				
+				PluginInterface pi = _plugin.getPluginInterface();
+				
+				Instrumentation inst = ByteBuddyAgent.install();
+				
+				URL[] urls = ((URLClassLoader)pi.getPluginClassLoader()).getURLs();
+						
+				for ( URL url: urls ){
+		
+					try{
+						File f = new File(url.toURI());
+						
+						if ( f.exists()){
+							
+							String name = f.getName();
+						
+							if ( name.startsWith( "webrtc-java" )){
+		
+								JarFile	jf = new JarFile( f );
+				
+								inst.appendToSystemClassLoaderSearch( jf );
+							}
+						}
+					}catch( Throwable e ){
+						
+					}
+				}
+				
+				Class.forName( 
+						"dev.onvoid.webrtc.PeerConnectionFactory", 
+						true, 
+						ClassLoader.getSystemClassLoader());
+			}
+			*/
 		}
 		
 		return( new WebRTCLocalImpl( _plugin, _peer_bridge, _instance_id, _callback ));

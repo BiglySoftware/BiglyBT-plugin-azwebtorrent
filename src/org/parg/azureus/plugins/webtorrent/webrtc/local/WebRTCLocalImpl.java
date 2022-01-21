@@ -22,6 +22,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.parg.azureus.plugins.webtorrent.WebRTCProvider;
 import org.parg.azureus.plugins.webtorrent.WebTorrentPlugin;
@@ -83,6 +84,15 @@ WebRTCLocalImpl
 	
 	private boolean impl_destroyed;
 	
+	private AtomicLong	offers_sent			= new AtomicLong();
+	private AtomicLong	offers_received		= new AtomicLong();
+	private AtomicLong	answers_sent		= new AtomicLong();
+	private AtomicLong	answers_received	= new AtomicLong();
+	
+	private AtomicLong	incoming_connections	= new AtomicLong();
+	private AtomicLong	outgoing_connections	= new AtomicLong();
+	
+	
 	public
 	WebRTCLocalImpl(
 		WebTorrentPlugin		_plugin,
@@ -102,6 +112,8 @@ WebRTCLocalImpl
 			
 			for ( String url: plugin.getICEUrls()){
 
+				plugin.log( "Added ICE server: " + url );
+				
 				iceServer.urls.add( url );
 			}
 			
@@ -109,16 +121,32 @@ WebRTCLocalImpl
 			
 			config.iceServers.add(iceServer);
 
+			int TIMER_PERIOD 	= 5*1000;
+			int STATS_PERIOD	= 60*1000;
+			int STATS_TICKS		= STATS_PERIOD/TIMER_PERIOD;
+			
 			SimpleTimer.addPeriodicEvent(
 				"WebRTCLocalImpl:timer",
-				5*1000,
+				TIMER_PERIOD,
 				new TimerEventPerformer()
-				{					
+				{	
+					int	ticks = 0;
+					
 					@Override
 					public void 
 					perform(
 						TimerEvent event ) 
 					{
+						ticks++;
+						
+						if ( ticks % STATS_TICKS == 0 ){
+							
+							plugin.log( 
+								"Connections=" + outgoing_connections.get() + "/" + incoming_connections.get() + ", " +
+								"offers=" + offers_sent.get() + "/" + offers_received.get() + ", " +
+								"answers=" + answers_sent.get() + "/" + answers_received.get());	
+						}
+						
 						List<PeerConnection>		failed = new ArrayList<>();
 						
 						synchronized( lock ){
@@ -142,9 +170,7 @@ WebRTCLocalImpl
 				});
 			
 		}catch( Throwable e ){
-			
-			Debug.out(e);
-			
+						
 			plugin.setStatusError( e );
 		}
 	}
@@ -438,6 +464,8 @@ WebRTCLocalImpl
 									listener_triggered = true;
 								}
 								
+								offers_sent.incrementAndGet();
+								
 								offer_listener.gotOffer(
 									new Offer()
 									{
@@ -494,6 +522,8 @@ WebRTCLocalImpl
 			
 			offer_id = oid;
 
+			offers_received.incrementAndGet();
+			
 			peerConnection = 
 					factory.createPeerConnection(
 						config, 
@@ -592,6 +622,8 @@ WebRTCLocalImpl
 										
 										listener_triggered = true;
 									}
+									
+									answers_sent.incrementAndGet();
 									
 									answer_listener.gotAnswer(
 										new Answer()
@@ -725,6 +757,15 @@ WebRTCLocalImpl
 											
 											BridgePeer bp = new BridgePeer( remote_ip, incoming );
 											
+											if ( incoming ){
+												
+												incoming_connections.incrementAndGet();
+												
+											}else{
+												
+												outgoing_connections.incrementAndGet();
+											}
+											
 											synchronized( peer_lock ){
 												
 												if ( pc_destroyed ){
@@ -806,6 +847,8 @@ WebRTCLocalImpl
 		gotAnswer(
 			String		sdp )
 		{
+			answers_received.incrementAndGet();
+			
 			RTCSessionDescription desc = new RTCSessionDescription(RTCSdpType.ANSWER,sdp);
 			
 			peerConnection.setRemoteDescription(

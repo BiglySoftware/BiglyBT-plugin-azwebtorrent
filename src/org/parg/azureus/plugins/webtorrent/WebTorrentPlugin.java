@@ -1067,7 +1067,9 @@ WebTorrentPlugin
 		
 		status_label.setLabelText( loc_utils.getLocalisedMessageText( "azwebtorrent.status.fail", new String[]{ init_error }) );
 		
-		log( init_error );	
+		log( "Plugin failed", e );	
+		
+		Debug.out( e );
 	}
 	
 	public PluginInterface
