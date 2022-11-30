@@ -136,6 +136,7 @@ WebTorrentPlugin
 	private long			last_activation_attempt;
 	
 	private boolean			unloaded;
+	private boolean			destroyed;
 	
 	@Override
 	public void 
@@ -472,7 +473,14 @@ WebTorrentPlugin
 				public void 
 				closedownInitiated() 
 				{
+					synchronized( active_lock ){
+						
+						destroyed = true;
+					}
+					
 					browser_manager.killBrowsers();
+					
+					deactivate();
 				}
 			});
 		
@@ -618,6 +626,11 @@ WebTorrentPlugin
 				if ( active ){
 					
 					return( true );
+				}
+				
+				if ( destroyed ){
+					
+					return( false );
 				}
 				
 				long	now = SystemTime.getMonotonousTime();

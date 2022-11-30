@@ -290,10 +290,13 @@ WebRTCPeerBridge
 					remote_ip = "Websocket." + local_port;
 				}
 				
+				boolean incoming = web_rtc_peer.isIncoming();
+				
 				Map<String,Object>	props = new HashMap<String, Object>();
 				
 				props.put( AEProxyAddressMapper.MAP_PROPERTY_DISABLE_AZ_MESSAGING, true );
 				props.put( AEProxyAddressMapper.MAP_PROPERTY_PROTOCOL_QUALIFIER, "WebSocket" );
+				props.put( AEProxyAddressMapper.MAP_PROPERTY_CONNECTION_INCOMING, incoming );
 					
 				mapping = AEProxyFactory.getAddressMapper().registerPortMapping( local_port, remote_ip, props );
 				
@@ -308,7 +311,7 @@ WebRTCPeerBridge
 			
 				socket.setTcpNoDelay( true );
 	
-				if ( web_rtc_peer.isIncoming()){
+				if ( incoming ){
 					
 					OutputStream	os = socket.getOutputStream();
 					
