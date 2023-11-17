@@ -39,6 +39,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.biglybt.core.internat.MessageText;
 import com.biglybt.core.torrent.TOTorrent;
 import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.RandomUtils;
@@ -81,9 +82,9 @@ WebTorrentPlugin
 {
 	private static final long instance_id = RandomUtils.nextSecureAbsoluteLong();
 		
-	// http://olegh.ftp.sh/public-stun.txt
+		// http://olegh.ftp.sh/public-stun.txt
 
-	private String[] ice_urls = {
+	private final String[] ICE_URLS_DEFAULT = {
 			"stun:stun.l.google.com:19302",
 			"stun:global.stun.twilio.com:3478",
 			
@@ -93,7 +94,7 @@ WebTorrentPlugin
 			"stun:stun4.l.google.com:19302",
 	};
 
-	
+	private String[] ice_urls = ICE_URLS_DEFAULT;
 
 	private static final String DEFAULT_EXTERNAL_TRACKERS	= "wss://tracker.openwebtorrent.com/";
 	
@@ -105,7 +106,7 @@ WebTorrentPlugin
 	private BasicPluginViewModel	view_model;
 	
 	private LabelParameter 			status_label;
-	
+	private StringParameter 		ice_param;
 	private BooleanParameter		browser_impl;
 	private BooleanParameter		browser_no_sandbox;
 	
@@ -137,6 +138,38 @@ WebTorrentPlugin
 	
 	private boolean			unloaded;
 	private boolean			destroyed;
+	
+	private void
+	updateICEUrls()
+	{
+		String value = ice_param.getValue().trim();
+		
+		if ( value.isEmpty()){
+			
+			for ( String url: ICE_URLS_DEFAULT ){
+				
+				value += (value.isEmpty()?"":"\n") + url;
+			}
+			
+			ice_param.setValue( value );
+		}
+		
+		List<String> urls = new ArrayList<>();
+		
+		String[] lines = value.split( "\\n" );
+		
+		for ( String line: lines ){
+			
+			line = line.trim();
+			
+			if ( !line.isEmpty()){
+				
+				urls.add( line );
+			}
+		}
+		
+		ice_urls = urls.toArray( new String[0] );
+	}
 	
 	@Override
 	public void 
@@ -195,6 +228,24 @@ WebTorrentPlugin
 
 		status_label = config_model.addLabelParameter2( "azwebtorrent.status");
 
+		ice_param = config_model.addStringParameter2( "azwebtorrent.ice_servers", "azwebtorrent.ice_servers", "" );
+		
+		updateICEUrls();
+
+		ice_param.setMultiLine( 5 );
+		ice_param.setGenerateIntermediateEvents( false );
+		
+		ice_param.addListener(
+				new ParameterListener()
+				{
+					@Override
+					public void
+					parameterChanged(
+						Parameter 	param )
+					{
+						updateICEUrls();
+					}
+				});
 		
 		browser_impl = config_model.addBooleanParameter2( "azwebtorrent.impl.browser", "azwebtorrent.impl.browser", false );
 
