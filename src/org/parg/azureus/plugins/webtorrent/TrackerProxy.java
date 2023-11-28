@@ -152,6 +152,8 @@ TrackerProxy
 
 		  	int	read_timeout	= Integer.parseInt( read_timeout_str );
 		  	
+		  	read_timeout = Math.max( read_timeout, 30*1000 );
+		  	
 			boolean	is_stop = event != null && event.equals( "stopped" );
 			
 			final boolean scrape = peer_id == null;

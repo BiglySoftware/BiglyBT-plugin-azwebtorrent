@@ -32,6 +32,7 @@ import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 
 import com.biglybt.core.util.AsyncDispatcher;
 import com.biglybt.core.util.Debug;
+import com.biglybt.core.util.DisplayFormatters;
 import com.biglybt.core.util.RandomUtils;
 import com.biglybt.core.util.SimpleTimer;
 import com.biglybt.core.util.SystemTime;
@@ -89,6 +90,12 @@ WebRTCLocalImpl
 	private AtomicLong	answers_sent		= new AtomicLong();
 	private AtomicLong	answers_received	= new AtomicLong();
 	
+	private AtomicLong	timeouts			= new AtomicLong();
+	private AtomicLong	answers_late		= new AtomicLong();
+
+	private AtomicLong	bytes_sent			= new AtomicLong();
+	private AtomicLong	bytes_received		= new AtomicLong();
+
 	private AtomicLong	incoming_connections	= new AtomicLong();
 	private AtomicLong	outgoing_connections	= new AtomicLong();
 	
@@ -108,6 +115,7 @@ WebRTCLocalImpl
 		try{
 			factory = new PeerConnectionFactory();
 			
+			/*
 			RTCIceServer iceServer = new RTCIceServer();
 			
 			for ( String url: plugin.getICEUrls()){
@@ -120,7 +128,21 @@ WebRTCLocalImpl
 			config = new RTCConfiguration();
 			
 			config.iceServers.add(iceServer);
+			*/
+			
+			config = new RTCConfiguration();
 
+			for ( String url: plugin.getICEUrls()){
+
+				plugin.log( "Added ICE server: " + url );
+				
+				RTCIceServer iceServer = new RTCIceServer();
+				
+				iceServer.urls.add( url );
+				
+				config.iceServers.add(iceServer);
+			}
+									
 			int TIMER_PERIOD 	= 5*1000;
 			int STATS_PERIOD	= 60*1000;
 			int STATS_TICKS		= STATS_PERIOD/TIMER_PERIOD;
@@ -138,20 +160,16 @@ WebRTCLocalImpl
 						TimerEvent event ) 
 					{
 						ticks++;
-						
-						if ( ticks % STATS_TICKS == 0 ){
-							
-							plugin.log( 
-								"Connections=" + outgoing_connections.get() + "/" + incoming_connections.get() + ", " +
-								"offers=" + offers_sent.get() + "/" + offers_received.get() + ", " +
-								"answers=" + answers_sent.get() + "/" + answers_received.get());	
-						}
-						
+												
 						List<PeerConnection>		failed = new ArrayList<>();
+						
+						int num_connnections;
 						
 						synchronized( lock ){
 							
-							trace( "Peer count=" + connections.size());
+							num_connnections = connections.size();
+							
+							trace( "Peer count=" + num_connnections );
 							
 							for ( PeerConnection pc: connections.values()){
 								
@@ -165,6 +183,18 @@ WebRTCLocalImpl
 						for ( PeerConnection pc: failed ){
 							
 							removePeer( pc );
+						}
+						
+						if ( ticks % STATS_TICKS == 0 ){
+							
+							plugin.log( 
+								"Connections=" + outgoing_connections.get() + 
+									"/" + incoming_connections.get() + 
+									" [" + num_connnections + "/" + failed.size() + "], " +
+								"offers=" + offers_sent.get() + "/" + offers_received.get() + ", " +
+								"answers=" + answers_sent.get() + "/" + answers_received.get() + ", " +	
+								"timeouts=" + timeouts.get() + "/" + answers_late.get() + ", " +
+								"data=" + DisplayFormatters.formatByteCountToKiBEtc( bytes_sent.get()) + "/" + DisplayFormatters.formatByteCountToKiBEtc( bytes_received.get()));
 						}
 					}
 				});
@@ -233,7 +263,8 @@ WebRTCLocalImpl
 		
 		if ( pc == null ){
 			
-			Debug.out( "No peer connection found for offer " + offer_id );
+			answers_late.incrementAndGet();
+			// Debug.out( "No peer connection found for offer " + offer_id );
 			
 		}else{
 			
@@ -360,6 +391,8 @@ WebRTCLocalImpl
 		
 		RTCDataChannel 		channel;
 		
+		boolean initialised = false;
+
 		volatile RTCPeerConnectionState 		connection_state;
 		
 		BridgePeer			bridge_peer;
@@ -387,117 +420,115 @@ WebRTCLocalImpl
 			
 			offer_id = oid;
 
-			peerConnection = 
-					factory.createPeerConnection(
-						config, 
-						new PeerConnectionObserver(){
-							
-							@Override
-							public void 
-							onIceCandidate(
-								RTCIceCandidate candidate )
-							{
-								// trace( candidate.sdp );
-							}
-							
-							@Override
-							public void 
-							onIceCandidateError(
-								RTCPeerConnectionIceErrorEvent event)
-							{
-								// trace( "candidate error: " + event.getAddress() + " - " + event.getErrorText());
-							}
-							
-							@Override
-							public void 
-							onConnectionChange(
-								RTCPeerConnectionState state)
-							{
-								connection_state = state;
+			try{
+				peerConnection = 
+						factory.createPeerConnection(
+							config, 
+							new PeerConnectionObserver(){
 								
-								// trace( "state=" + state );
-								
-								if ( state == RTCPeerConnectionState.FAILED ){
-									
-									failed( "state->failed");
+								@Override
+								public void 
+								onIceCandidate(
+									RTCIceCandidate candidate )
+								{
+									// trace( candidate.sdp );
 								}
-							}
-						});
+								
+								@Override
+								public void 
+								onIceCandidateError(
+									RTCPeerConnectionIceErrorEvent event)
+								{
+									// trace( "candidate error: " + event.getAddress() + " - " + event.getErrorText());
+								}
+								
+								@Override
+								public void 
+								onConnectionChange(
+									RTCPeerConnectionState state)
+								{
+									setState( state );
+								}
+							});
+					
+				setState( peerConnection.getConnectionState());
 				
-			connection_state = peerConnection.getConnectionState();
-			
-			RTCDataChannelInit channel_init = new RTCDataChannelInit();
-			
-			// channel_init.protocol = "arraybuffer";
-			
-			channel_init.negotiated	= false;
-			channel_init.ordered	= true;
-			channel_init.priority	= RTCPriorityType.HIGH;
-			
-			channel = peerConnection.createDataChannel( "biglybt", channel_init );
-			
-			setupChannel( false );
-			
-			RTCOfferOptions options = new RTCOfferOptions();
-			
-			peerConnection.createOffer( options, new CreateSessionDescriptionObserver(){				
-				@Override
-				public void 
-				onSuccess(
-					RTCSessionDescription desc)
-				{
-					peerConnection.setLocalDescription( 
-						desc,
-						new SetSessionDescriptionObserver(){
-							
-							@Override
-							public void 
-							onSuccess()
-							{	
-								synchronized( peer_lock ){
-
-									if ( listener_triggered ){
+				RTCDataChannelInit channel_init = new RTCDataChannelInit();
+				
+				// channel_init.protocol = "arraybuffer";
+				
+				channel_init.negotiated	= false;
+				channel_init.ordered	= true;
+				channel_init.priority	= RTCPriorityType.HIGH;
+				
+				channel = peerConnection.createDataChannel( "biglybt", channel_init );
+				
+				setupChannel( false );
+				
+				RTCOfferOptions options = new RTCOfferOptions();
+				
+				peerConnection.createOffer( options, new CreateSessionDescriptionObserver(){				
+					@Override
+					public void 
+					onSuccess(
+						RTCSessionDescription desc)
+					{
+						peerConnection.setLocalDescription( 
+							desc,
+							new SetSessionDescriptionObserver(){
+								
+								@Override
+								public void 
+								onSuccess()
+								{	
+									synchronized( peer_lock ){
+	
+										if ( listener_triggered ){
+											
+											return;
+										}
 										
-										return;
+										listener_triggered = true;
 									}
 									
-									listener_triggered = true;
+									offers_sent.incrementAndGet();
+									
+									offer_listener.gotOffer(
+										new Offer()
+										{
+											@Override
+											public String getOfferID(){
+												return( String.valueOf( offer_id ));
+											}
+											@Override
+											public String getSDP(){
+												return( desc.sdp );
+											}
+										});
 								}
 								
-								offers_sent.incrementAndGet();
-								
-								offer_listener.gotOffer(
-									new Offer()
-									{
-										@Override
-										public String getOfferID(){
-											return( String.valueOf( offer_id ));
-										}
-										@Override
-										public String getSDP(){
-											return( desc.sdp );
-										}
-									});
-							}
-							
-							@Override
-							public void 
-							onFailure(
-								String arg )
-							{	
-								failed( "setLocalDescription failed: " + arg );
-							}
-						});
-				}
+								@Override
+								public void 
+								onFailure(
+									String arg )
+								{	
+									failed( "setLocalDescription failed: " + arg );
+								}
+							});
+					}
+					
+					@Override
+					public void 
+					onFailure(
+						String arg )
+					{
+						failed( "createOffer failed: " + arg );
+					}
+				});
+			}finally{
 				
-				@Override
-				public void 
-				onFailure(
-					String arg )
-				{
-					failed( "createOffer failed: " + arg );
-				}
-			});
+				initialised();
+			}
 		}
 		
 		PeerConnection(
@@ -523,8 +554,9 @@ WebRTCLocalImpl
 			offer_id = oid;
 
 			offers_received.incrementAndGet();
-			
-			peerConnection = 
+						
+			try{
+				peerConnection = 
 					factory.createPeerConnection(
 						config, 
 						new PeerConnectionObserver(){
@@ -550,14 +582,7 @@ WebRTCLocalImpl
 							onConnectionChange(
 								RTCPeerConnectionState state)
 							{
-								connection_state = state;
-								
-								// trace( "state=" + state );
-								
-								if ( state == RTCPeerConnectionState.FAILED ){
-									
-									failed( "state->failed");
-								}
+								setState( state );
 							}
 							
 							@Override
@@ -570,97 +595,102 @@ WebRTCLocalImpl
 								setupChannel( true );
 							}
 						});
+					
+				RTCSessionDescription desc = new RTCSessionDescription( RTCSdpType.OFFER, _sdp );
+	
+				peerConnection.setRemoteDescription(
+					desc,
+					new SetSessionDescriptionObserver(){
+						
+						@Override
+						public void 
+						onSuccess()
+						{
+						}
+						
+						@Override
+						public void 
+						onFailure(
+							String arg )
+						{
+							failed( "setRemoteDescription failed: " + arg );
+						}
+					});
 				
-			RTCSessionDescription desc = new RTCSessionDescription( RTCSdpType.OFFER, _sdp );
-
-			peerConnection.setRemoteDescription(
-				desc,
-				new SetSessionDescriptionObserver(){
-					
-					@Override
-					public void 
-					onSuccess()
-					{
-					}
-					
-					@Override
-					public void 
-					onFailure(
-						String arg )
-					{
-						failed( "setRemoteDescription failed: " + arg );
-					}
-				});
-			
-			connection_state = peerConnection.getConnectionState();
-			
-			RTCAnswerOptions options = new RTCAnswerOptions();
-			
-			peerConnection.createAnswer(
-				options,
-				new CreateSessionDescriptionObserver(){
-					
-					@Override
-					public void 
-					onSuccess(
-						RTCSessionDescription desc )
-					{
-						peerConnection.setLocalDescription( 
-							desc,
-							new SetSessionDescriptionObserver(){
-								
-								@Override
-								public void 
-								onSuccess()
-								{
-									synchronized( peer_lock ){
-										
-										if ( listener_triggered ){
+				setState( peerConnection.getConnectionState());
+				
+				RTCAnswerOptions options = new RTCAnswerOptions();
+				
+				peerConnection.createAnswer(
+					options,
+					new CreateSessionDescriptionObserver(){
+						
+						@Override
+						public void 
+						onSuccess(
+							RTCSessionDescription desc )
+						{
+							peerConnection.setLocalDescription( 
+								desc,
+								new SetSessionDescriptionObserver(){
+									
+									@Override
+									public void 
+									onSuccess()
+									{
+										synchronized( peer_lock ){
 											
-											return;
+											if ( listener_triggered ){
+												
+												return;
+											}
+											
+											listener_triggered = true;
 										}
 										
-										listener_triggered = true;
+										answers_sent.incrementAndGet();
+										
+										answer_listener.gotAnswer(
+											new Answer()
+											{
+												@Override
+												public String 
+												getOfferID()
+												{
+													return( _remote_offer_id );
+												}
+												@Override
+												public String 
+												getSDP()
+												{
+													return( desc.sdp );
+												}
+											});
 									}
 									
-									answers_sent.incrementAndGet();
-									
-									answer_listener.gotAnswer(
-										new Answer()
-										{
-											@Override
-											public String 
-											getOfferID()
-											{
-												return( _remote_offer_id );
-											}
-											@Override
-											public String 
-											getSDP()
-											{
-												return( desc.sdp );
-											}
-										});
-								}
-								
-								@Override
-								public void 
-								onFailure(
-									String arg )
-								{
-									failed( "setLocalDescription failed: " + arg );
-								}
-							});
-					}
-					
-					@Override
-					public void 
-					onFailure(
-						String arg )
-					{
-						failed( "createAnswer failed: " + arg );
-					}
-				});
+									@Override
+									public void 
+									onFailure(
+										String arg )
+									{
+										failed( "setLocalDescription failed: " + arg );
+									}
+								});
+						}
+						
+						@Override
+						public void 
+						onFailure(
+							String arg )
+						{
+							failed( "createAnswer failed: " + arg );
+						}
+					});
+				
+			}finally{
+				
+				initialised();
+			}
 		}
 		
 		void
@@ -793,6 +823,8 @@ WebRTCLocalImpl
 													
 													for ( ByteBuffer buffer: queue ){
 														
+														bytes_received.addAndGet( buffer.remaining());
+														
 														peer_bridge.receive( bp, buffer );
 													}
 													
@@ -828,6 +860,8 @@ WebRTCLocalImpl
 								
 							}else{
 	
+								bytes_received.addAndGet( buffer.remaining());
+								
 								peer_bridge.receive( bridge_peer, buffer );
 							}
 						}
@@ -886,19 +920,79 @@ WebRTCLocalImpl
 				
 				if ( now > created_time + listener_timeout ){
 					
+					timeouts.incrementAndGet();
+					
 					return( true );
 				}
 			}
 						
-			if ( now - created_time > 120*1000 ){
+			if ( now - created_time > 3*60*1000 ){
 			
 				if ( connection_state == RTCPeerConnectionState.NEW ){
+					
+					timeouts.incrementAndGet();
 					
 					return( true );
 				}
 			}
 			
-			return( false );
+			return( pc_destroyed );
+		}
+				
+		void 
+		initialised()
+		{
+			boolean trigger_failed = false;
+			
+			synchronized( peer_lock ){
+
+				if ( initialised ){
+					
+					return;
+				}
+				
+				initialised = true;
+				
+				trigger_failed = connection_state == RTCPeerConnectionState.FAILED;
+			}
+			
+			if ( trigger_failed ){
+				
+				failed( "state->failed (init)");
+			}
+		}
+		
+		void
+		setState(
+			RTCPeerConnectionState state )
+		{
+			trace( "setState=" + state );
+
+			boolean trigger_failed = false;
+		
+			synchronized( peer_lock ){
+				
+					// never progress beyond failed
+				
+				if ( connection_state == RTCPeerConnectionState.FAILED ){
+					
+					return;
+				}
+			
+				connection_state = state;
+				
+				if ( !initialised ){
+					
+					return;
+				}
+				
+				trigger_failed = state == RTCPeerConnectionState.FAILED;
+			}
+						
+			if ( trigger_failed ){
+				
+				failed( "state->failed");
+			}
 		}
 		
 		void
@@ -963,6 +1057,11 @@ WebRTCLocalImpl
 			}
 			
 			peerConnection.close();
+			
+			async_dispatcher.dispatch(()->{;
+
+				removePeer( this );
+			});
 		}
 		
 		class 
@@ -1013,6 +1112,8 @@ WebRTCLocalImpl
 		    	throws Throwable
 		    {
 				trace( "Send to peer: " + buffer.remaining() + ", buffered=" + channel.getBufferedAmount());
+				
+				bytes_sent.addAndGet( buffer.remaining());
 				
 					// seems to need to be a direct buffer otherwise nothing gets sent :(
 				
