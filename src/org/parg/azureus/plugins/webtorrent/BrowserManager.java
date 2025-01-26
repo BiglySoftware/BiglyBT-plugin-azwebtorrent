@@ -174,9 +174,17 @@ BrowserManager
 					
 					List<String> args = new ArrayList<>();
 					
+					args.add( "ditto" );
+					args.add( "-x" );
+					args.add( "-k" );
+					args.add( temp_zip.getAbsolutePath());
+					args.add( temp_data.getAbsolutePath());
+					
+					/* if someone has installed, say, betterzip, this will invoke this which doesn't work...
 					args.add( "open" );
 					args.add( "-W" );
 					args.add( temp_zip.getAbsolutePath());
+					*/
 					
 					ProcessBuilder pb = GeneralUtils.createProcessBuilder( temp_data, args.toArray(new String[args.size()]), null );
 
