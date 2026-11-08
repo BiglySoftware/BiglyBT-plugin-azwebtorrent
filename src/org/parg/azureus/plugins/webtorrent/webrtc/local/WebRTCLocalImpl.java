@@ -25,12 +25,14 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.parg.azureus.plugins.webtorrent.WebRTCProvider;
+import org.parg.azureus.plugins.webtorrent.WebRTCProviderManager;
 import org.parg.azureus.plugins.webtorrent.WebTorrentPlugin;
 import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeer;
 import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 
 
 import com.biglybt.core.util.AsyncDispatcher;
+import com.biglybt.core.util.ByteFormatter;
 import com.biglybt.core.util.Debug;
 import com.biglybt.core.util.DisplayFormatters;
 import com.biglybt.core.util.RandomUtils;
@@ -71,7 +73,6 @@ WebRTCLocalImpl
 	private static final boolean 	trace_on = false;
 	
 	private static Object	lock 			= new Object();
-	private static long		next_offer_id	= RandomUtils.nextAbsoluteLong();
 
 	private static AsyncDispatcher	async_dispatcher = new AsyncDispatcher();
 	
@@ -81,7 +82,7 @@ WebRTCLocalImpl
 	private PeerConnectionFactory 	factory;
 	private RTCConfiguration 		config;
 	
-	private Map<Long,PeerConnection>	connections = new HashMap<>();
+	private Map<String,PeerConnection>	connections = new HashMap<>();
 	
 	private boolean impl_destroyed;
 	
@@ -258,7 +259,7 @@ WebRTCLocalImpl
 		
 		synchronized( lock ){
 			
-			pc = connections.get( Long.parseLong( offer_id ) );
+			pc = connections.get( offer_id );
 		}
 		
 		if ( pc == null ){
@@ -380,7 +381,7 @@ WebRTCLocalImpl
 		final long					created_time	= SystemTime.getMonotonousTime();
 
 		final byte[]				info_hash;
-		final long					offer_id;
+		final String				my_offer_id;
 		
 		final OfferListener			offer_listener;
 		final AnswerListener		answer_listener;
@@ -410,15 +411,8 @@ WebRTCLocalImpl
 			answer_listener		= null;
 			
 			listener_timeout	= _timeout;
-			
-			long oid = next_offer_id++;
-			
-			if ( oid == 0 ){
-				
-				oid = next_offer_id++;
-			}
-			
-			offer_id = oid;
+						
+			my_offer_id = WebRTCProviderManager.generateOfferID();
 
 			try{
 				peerConnection = 
@@ -498,7 +492,7 @@ WebRTCLocalImpl
 										{
 											@Override
 											public String getOfferID(){
-												return( String.valueOf( offer_id ));
+												return( my_offer_id );
 											}
 											@Override
 											public String getSDP(){
@@ -543,15 +537,8 @@ WebRTCLocalImpl
 			answer_listener		= _accept_listener;
 			
 			listener_timeout	= 0;
-			
-			long oid = next_offer_id++;
-			
-			if ( oid == 0 ){
-				
-				oid = next_offer_id++;
-			}
-			
-			offer_id = oid;
+						
+			my_offer_id = WebRTCProviderManager.generateOfferID();
 
 			offers_received.incrementAndGet();
 						
@@ -905,10 +892,10 @@ WebRTCLocalImpl
 				});
 		}
 		
-		long
+		String
 		getOfferID()
 		{
-			return( offer_id );
+			return( my_offer_id );
 		}
 		
 		boolean
@@ -1087,10 +1074,10 @@ WebRTCLocalImpl
 				return( info_hash );
 			}
 			
-			public long
+			public String
 			getOfferID()
 			{
-				return( offer_id );
+				return( my_offer_id );
 			}
 			
 			public String

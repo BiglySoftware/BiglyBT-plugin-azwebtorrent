@@ -136,7 +136,7 @@ JavaScriptProxyInstance
     
 
     private long		instance_id;
-    private long		offer_id;
+    private String		offer_id;
     private boolean		is_peer;
     private String		remote_ip;
     private boolean		is_incoming;
@@ -152,7 +152,7 @@ JavaScriptProxyInstance
 		return( instance_id );
 	}
 	
-	public long
+	public String
 	getOfferID()
 	{
 		return( offer_id );
@@ -199,7 +199,7 @@ JavaScriptProxyInstance
 		
 		String		type 		= null;
 		long		id			= -1;
-		long		oid			= 0;
+		String		oid			= "";
 		boolean		inc			= false;
 		byte[]		hash	 	= null;
 		String		remote		= "";
@@ -221,7 +221,7 @@ JavaScriptProxyInstance
 				
 			}else if ( lhs.equals( "offer_id" )){
 				
-				oid = Long.parseLong( rhs );
+				oid = rhs;
 				
 			}else if ( lhs.equals( "incoming" )){
 				

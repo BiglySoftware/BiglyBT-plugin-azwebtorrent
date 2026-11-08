@@ -26,7 +26,7 @@ WebRTCPeer
 	public byte[]
 	getInfoHash();
 	
-	public long
+	public String
 	getOfferID();
 	
 	public String

@@ -26,6 +26,9 @@ import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 import org.parg.azureus.plugins.webtorrent.webrtc.browser.JavaScriptProxyImpl;
 import org.parg.azureus.plugins.webtorrent.webrtc.local.WebRTCLocalLoader;
 
+import com.biglybt.core.util.ByteFormatter;
+import com.biglybt.core.util.RandomUtils;
+
 public class 
 WebRTCProviderManager 
 {
@@ -47,5 +50,17 @@ WebRTCProviderManager
 			
 			return( WebRTCLocalLoader.load( plugin, bridge, instance_id, callback ));
 		}
+	}
+	
+	public static String
+	generateOfferID()
+	{
+			// might repeat but unlikely and whatever
+		
+		byte[] bytes = new byte[10];
+		
+		RandomUtils.nextSecureBytes(bytes );
+		
+		return( ByteFormatter.encodeString( bytes ));	// needs to be 20 bytes apparently
 	}
 }

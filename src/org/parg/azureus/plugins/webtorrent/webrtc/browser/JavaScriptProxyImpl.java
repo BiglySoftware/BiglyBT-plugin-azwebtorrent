@@ -44,6 +44,7 @@ import com.biglybt.core.util.SystemTime;
 import com.biglybt.core.util.TimerEvent;
 import com.biglybt.core.util.TimerEventPerformer;
 import org.parg.azureus.plugins.webtorrent.WebRTCProvider;
+import org.parg.azureus.plugins.webtorrent.WebRTCProviderManager;
 import org.parg.azureus.plugins.webtorrent.WebTorrentPlugin;
 import org.parg.azureus.plugins.webtorrent.webrtc.WebRTCPeerBridge;
 
@@ -53,7 +54,6 @@ JavaScriptProxyImpl
 	implements WebRTCProvider
 {
 	private static Object	lock 			= new Object();
-	private static long		next_offer_id	= RandomUtils.nextAbsoluteLong();
 	
 	private static boolean				server_started = false;
 	
@@ -389,14 +389,7 @@ JavaScriptProxyImpl
 					return;
 				}
 				
-				long oid = next_offer_id++;
-				
-				if ( oid == 0 ){
-					
-					oid = next_offer_id++;
-				}
-				
-				offer_id = String.valueOf( oid );
+				offer_id = WebRTCProviderManager.generateOfferID();
 				
 				offer = new OfferAnswerImpl( inst, offer_id, timeout, listener );
 				
@@ -482,14 +475,7 @@ JavaScriptProxyImpl
 					return;
 				}
 				
-				long oid = next_offer_id++;
-				
-				if ( oid == 0 ){
-					
-					oid = next_offer_id++;
-				}
-				
-				internal_offer_id = String.valueOf( oid );
+				internal_offer_id = WebRTCProviderManager.generateOfferID();
 				
 				offer = new OfferAnswerImpl( inst, external_offer_id, 2*60*1000, listener );
 				

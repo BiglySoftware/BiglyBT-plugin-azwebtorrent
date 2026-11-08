@@ -427,7 +427,7 @@ WebRTCPeerBridge
 		{
 			Map<String,Object>	result = new HashMap<>();
 			
-			result.put( "offer_id", String.valueOf( web_rtc_peer.getOfferID()));
+			result.put( "offer_id", web_rtc_peer.getOfferID());
 			
 			result.put( "ip", web_rtc_peer.getRemoteIP());
 			
