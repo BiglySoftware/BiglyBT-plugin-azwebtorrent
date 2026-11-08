@@ -81,7 +81,7 @@ WebRTCLocalImpl
 	private PeerConnectionFactory 	factory;
 	private RTCConfiguration 		config;
 	
-	private Map<Long,PeerConnection>	connections = new HashMap<>();
+	private Map<String,PeerConnection>	connections = new HashMap<>();
 	
 	private boolean impl_destroyed;
 	
@@ -231,7 +231,7 @@ WebRTCLocalImpl
 					
 				}else{
 
-					connections.put( pc.getOfferID(), pc );
+					connections.put( pc.getTrackerOfferID(), pc );
 				}
 			}
 			
@@ -258,7 +258,7 @@ WebRTCLocalImpl
 		
 		synchronized( lock ){
 			
-			pc = connections.get( Long.parseLong( offer_id ) );
+			pc = connections.get( offer_id );
 		}
 		
 		if ( pc == null ){
@@ -293,7 +293,7 @@ WebRTCLocalImpl
 					
 				}else{
 
-					connections.put( pc.getOfferID(), pc );
+					connections.put( pc.getTrackerOfferID(), pc );
 				}
 			}
 			
@@ -322,7 +322,7 @@ WebRTCLocalImpl
 			
 			synchronized( lock ){
 			
-				connections.remove( connection.getOfferID());
+				connections.remove( connection.getTrackerOfferID());
 			}
 		}
 	}
@@ -381,6 +381,7 @@ WebRTCLocalImpl
 
 		final byte[]				info_hash;
 		final long					offer_id;
+		final String				tracker_offer_id;
 		
 		final OfferListener			offer_listener;
 		final AnswerListener		answer_listener;
@@ -419,6 +420,7 @@ WebRTCLocalImpl
 			}
 			
 			offer_id = oid;
+			tracker_offer_id = WebTorrentPlugin.generateOfferID();
 
 			try{
 				peerConnection = 
@@ -498,7 +500,7 @@ WebRTCLocalImpl
 										{
 											@Override
 											public String getOfferID(){
-												return( String.valueOf( offer_id ));
+												return( tracker_offer_id );
 											}
 											@Override
 											public String getSDP(){
@@ -552,6 +554,7 @@ WebRTCLocalImpl
 			}
 			
 			offer_id = oid;
+			tracker_offer_id = WebTorrentPlugin.generateOfferID();
 
 			offers_received.incrementAndGet();
 						
@@ -909,6 +912,12 @@ WebRTCLocalImpl
 		getOfferID()
 		{
 			return( offer_id );
+		}
+
+		String
+		getTrackerOfferID()
+		{
+			return( tracker_offer_id );
 		}
 		
 		boolean

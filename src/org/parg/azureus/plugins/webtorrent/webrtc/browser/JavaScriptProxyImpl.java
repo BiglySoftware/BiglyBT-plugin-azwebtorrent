@@ -398,7 +398,7 @@ JavaScriptProxyImpl
 				
 				offer_id = String.valueOf( oid );
 				
-				offer = new OfferAnswerImpl( inst, offer_id, timeout, listener );
+				offer = new OfferAnswerImpl( inst, WebTorrentPlugin.generateOfferID(), timeout, listener );
 				
 				offer_answer_map.put( offer_id, offer );
 			}
@@ -437,6 +437,15 @@ JavaScriptProxyImpl
 		synchronized( lock ){
 
 			inst	= current_instance;
+
+			for ( Map.Entry<String,OfferAnswerImpl> entry: offer_answer_map.entrySet()){
+
+				if ( entry.getValue().getOfferID().equals( offer_id )){
+
+					offer_id = entry.getKey();
+					break;
+				}
+			}
 		}
 		
 		Map to_send = new HashMap();

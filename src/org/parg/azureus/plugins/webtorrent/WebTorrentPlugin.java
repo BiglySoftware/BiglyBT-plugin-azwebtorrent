@@ -1158,6 +1158,14 @@ WebTorrentPlugin
 	}
 	
 	public static String
+	generateOfferID()
+	{
+		byte[] bytes = new byte[20];
+		RandomUtils.SECURE_RANDOM.nextBytes( bytes );
+		return( new String( bytes, java.nio.charset.StandardCharsets.ISO_8859_1 ));
+	}
+
+	public static String
 	encodeForJSON(
 		byte[]	bytes )
 	{
